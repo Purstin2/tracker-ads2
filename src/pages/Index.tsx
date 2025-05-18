@@ -1,24 +1,197 @@
-
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useOffers } from "@/hooks/useOffers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
-  ChevronRight,
-  ArrowUp,
-  ArrowDown,
-  BarChart3,
   TrendingUp,
+  TrendingDown,
+  BarChart3,
   Calendar,
-  ShoppingCart
+  ShoppingCart,
+  Zap,
+  Target,
+  Activity,
+  ArrowUpRight,
+  Sparkles,
+  Eye,
+  Plus
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import NewOfferForm from "@/components/NewOfferForm";
 import { Offer } from "@/types/offer";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { calculateScore } from "@/services/scoreService";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
+
+// Componente de Métrica Moderna
+interface MetricCardProps {
+  title: string;
+  value: string | number;
+  change?: number;
+  trend?: 'up' | 'down' | 'neutral';
+  icon: React.ElementType;
+  gradient: string;
+  description?: string;
+}
+
+const MetricCard = ({ title, value, change, trend, icon: Icon, gradient, description }: MetricCardProps) => {
+  return (
+    <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] group">
+      {/* Gradient Background */}
+      <div className={`absolute inset-0 ${gradient} opacity-10 group-hover:opacity-20 transition-opacity`} />
+      
+      {/* Glassmorphism Effect */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent backdrop-blur-sm" />
+      
+      <CardContent className="relative p-6">
+        <div className="flex items-start justify-between">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            <div className="flex items-baseline space-x-2">
+              <h3 className="text-3xl font-bold tracking-tight">{value}</h3>
+              {change && (
+                <span className={cn(
+                  "flex items-center text-sm font-medium",
+                  trend === 'up' ? "text-green-500" : trend === 'down' ? "text-red-500" : "text-muted-foreground"
+                )}>
+                  {trend === 'up' ? <TrendingUp className="w-3 h-3 mr-1" /> : 
+                   trend === 'down' ? <TrendingDown className="w-3 h-3 mr-1" /> : null}
+                  {Math.abs(change)}%
+                </span>
+              )}
+            </div>
+            {description && (
+              <p className="text-xs text-muted-foreground">{description}</p>
+            )}
+          </div>
+          
+          {/* Icon com Glow Effect */}
+          <div className={`p-3 rounded-xl ${gradient} bg-opacity-20 group-hover:scale-110 transition-transform`}>
+            <Icon className="w-6 h-6 text-white" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+// Componente de Quick Action
+interface QuickActionProps {
+  title: string;
+  description: string;
+  icon: React.ElementType;
+  color: string;
+  href: string;
+  badge?: string;
+}
+
+const QuickAction = ({ title, description, icon: Icon, color, href, badge }: QuickActionProps) => {
+  return (
+    <Link to={href} className="group">
+      <Card className="h-full border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02] bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div className={`p-3 rounded-xl bg-gradient-to-br ${color} shadow-lg group-hover:scale-110 transition-transform`}>
+              <Icon className="w-6 h-6 text-white" />
+            </div>
+            {badge && (
+              <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full dark:bg-blue-900 dark:text-blue-300">
+                {badge}
+              </span>
+            )}
+          </div>
+          
+          <h3 className="font-semibold text-lg mb-2 group-hover:text-blue-600 transition-colors">
+            {title}
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            {description}
+          </p>
+          
+          <div className="flex items-center text-sm font-medium text-blue-600 group-hover:text-blue-700">
+            Acessar <ArrowUpRight className="w-4 h-4 ml-1 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+};
+
+// Componente de Score Visual
+interface ScoreVisualizationProps {
+  data: Array<{ name: string; value: number; color: string }>;
+}
+
+const ScoreVisualization = ({ data }: ScoreVisualizationProps) => {
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  
+  return (
+    <Card className="border-0 shadow-lg bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
+      <CardHeader>
+        <CardTitle className="flex items-center space-x-2">
+          <Target className="w-5 h-5 text-blue-500" />
+          <span>Performance das Ofertas</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {/* Pie Chart */}
+          <div className="h-48 flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'rgba(0,0,0,0.8)', 
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: 'white'
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          
+          {/* Legend */}
+          <div className="grid grid-cols-3 gap-4">
+            {data.map((item, index) => (
+              <div key={index} className="text-center">
+                <div className="flex items-center justify-center space-x-2 mb-1">
+                  <div 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="font-medium text-sm">{item.value}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">{item.name}</p>
+                {total > 0 && (
+                  <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                    {((item.value / total) * 100).toFixed(0)}%
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const Index = () => {
   const [isCreatingOffer, setIsCreatingOffer] = useState(false);
@@ -34,317 +207,269 @@ const Index = () => {
     setIsCreatingOffer(true);
   };
 
-  // Filter out archived offers
-  const activeOffers = offers.filter(offer => !archivedOffers.has(offer.id));
-  const pinnedOffersList = activeOffers.filter(offer => pinnedOffers.has(offer.id));
-  const favoriteOffersList = activeOffers.filter(offer => favoriteOffers.has(offer.id) && !pinnedOffers.has(offer.id));
-
-  // Calculate total active ads
-  const totalActiveAds = activeOffers.reduce((total, offer) => {
-    const latestData = offer.adData[offer.adData.length - 1];
-    return latestData ? total + latestData.activeAds : total;
-  }, 0);
-
-  // Calculate total page ads
-  const totalPageAds = activeOffers.reduce((total, offer) => total + (offer.totalPageAds || 0), 0);
-
-  // Calculate trend (compare with the previous day's total)
-  const todayTotal = totalActiveAds;
-  let yesterdayTotal = 0;
-  activeOffers.forEach(offer => {
-    const dataLength = offer.adData.length;
-    if (dataLength >= 2) {
-      const yesterdayData = offer.adData[dataLength - 2];
-      if (yesterdayData) {
-        yesterdayTotal += yesterdayData.activeAds;
-      }
-    }
-  });
-
-  const trend = {
-    direction: todayTotal > yesterdayTotal ? 'up' : todayTotal < yesterdayTotal ? 'down' : 'stable',
-    percentage: yesterdayTotal ? Math.abs((todayTotal - yesterdayTotal) / yesterdayTotal * 100) : 0
-  };
-
-  // Get offerings by score
-  const scoreDistribution = {
-    high: activeOffers.filter(offer => calculateScore(offer).result === 'high').length,
-    medium: activeOffers.filter(offer => calculateScore(offer).result === 'medium').length,
-    low: activeOffers.filter(offer => calculateScore(offer).result === 'low').length
-  };
-
-  // Prepare chart data
-  const chartData = (() => {
-    // Get all unique dates
-    const dates = new Set<string>();
-    activeOffers.forEach(offer => {
-      offer.adData.forEach(data => {
-        dates.add(data.date);
-      });
-    });
-
-    // Sort dates
-    const sortedDates = Array.from(dates).sort();
+  // Memoized calculations for performance
+  const stats = useMemo(() => {
+    const activeOffers = offers.filter(offer => !archivedOffers.has(offer.id));
     
-    // Create data points for each date
-    return sortedDates.map(date => {
-      let totalAds = 0;
-      activeOffers.forEach(offer => {
-        const adDataForDate = offer.adData.find(d => d.date === date);
-        if (adDataForDate) {
-          totalAds += adDataForDate.activeAds;
-        }
-      });
-      
-      return {
-        date,
-        totalAds
-      };
-    });
-  })();
+    const totalActiveAds = activeOffers.reduce((total, offer) => {
+      const latestData = offer.adData[offer.adData.length - 1];
+      return latestData ? total + latestData.activeAds : total;
+    }, 0);
 
-  // Format the trends for display
-  const formatTrend = (value: number) => {
-    return value.toFixed(1);
-  };
+    const totalPageAds = activeOffers.reduce((total, offer) => total + (offer.totalPageAds || 0), 0);
+
+    // Calculate trend
+    const todayTotal = totalActiveAds;
+    let yesterdayTotal = 0;
+    activeOffers.forEach(offer => {
+      const dataLength = offer.adData.length;
+      if (dataLength >= 2) {
+        const yesterdayData = offer.adData[dataLength - 2];
+        if (yesterdayData) {
+          yesterdayTotal += yesterdayData.activeAds;
+        }
+      }
+    });
+
+    const trendPercentage = yesterdayTotal ? Math.abs((todayTotal - yesterdayTotal) / yesterdayTotal * 100) : 0;
+    const trendDirection = todayTotal > yesterdayTotal ? 'up' : todayTotal < yesterdayTotal ? 'down' : 'neutral';
+
+    // Score distribution
+    const scoreDistribution = {
+      high: activeOffers.filter(offer => calculateScore(offer).result === 'high').length,
+      medium: activeOffers.filter(offer => calculateScore(offer).result === 'medium').length,
+      low: activeOffers.filter(offer => calculateScore(offer).result === 'low').length
+    };
+
+    // Chart data for trend
+    const chartData = (() => {
+      const dates = new Set<string>();
+      activeOffers.forEach(offer => {
+        offer.adData.forEach(data => {
+          dates.add(data.date);
+        });
+      });
+
+      const sortedDates = Array.from(dates).sort();
+      
+      return sortedDates.slice(-7).map(date => {
+        let totalAds = 0;
+        activeOffers.forEach(offer => {
+          const adDataForDate = offer.adData.find(d => d.date === date);
+          if (adDataForDate) {
+            totalAds += adDataForDate.activeAds;
+          }
+        });
+        
+        return {
+          date: new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+          totalAds
+        };
+      });
+    })();
+
+    return {
+      totalOffers: activeOffers.length,
+      totalActiveAds,
+      totalPageAds,
+      trendPercentage,
+      trendDirection,
+      scoreDistribution,
+      chartData,
+      daysMonitored: chartData.length,
+      pinnedCount: pinnedOffers.size,
+      favoriteCount: favoriteOffers.size
+    };
+  }, [offers, archivedOffers, pinnedOffers, favoriteOffers]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="text-muted-foreground">Carregando dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="content-wrapper">
-      <div className="content-header">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <div className="flex gap-2">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+          <div className="mb-4 sm:mb-0">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+              Dashboard
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Gerencie suas ofertas e monitore performance
+            </p>
+          </div>
+          
           <Button 
             onClick={handleNewOfferClick}
-            className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300 group"
+            size="lg"
           >
+            <Plus className="mr-2 h-5 w-5 group-hover:rotate-90 transition-transform" />
             Nova Oferta
           </Button>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center h-40">
-          <div className="animate-pulse text-slate-400">Carregando...</div>
+        {/* Metrics Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <MetricCard
+            title="Total de Ofertas"
+            value={stats.totalOffers}
+            icon={BarChart3}
+            gradient="bg-gradient-to-br from-blue-500 to-blue-600"
+            description={`${stats.pinnedCount} fixadas, ${stats.favoriteCount} favoritas`}
+          />
+          
+          <MetricCard
+            title="Anúncios Ativos"
+            value={stats.totalActiveAds}
+            change={stats.trendPercentage}
+            trend={stats.trendDirection}
+            icon={Activity}
+            gradient="bg-gradient-to-br from-green-500 to-emerald-600"
+            description="Comparado com ontem"
+          />
+          
+          <MetricCard
+            title="Anúncios das Páginas"
+            value={stats.totalPageAds}
+            icon={ShoppingCart}
+            gradient="bg-gradient-to-br from-purple-500 to-purple-600"
+            description="Total em todas as páginas"
+          />
+          
+          <MetricCard
+            title="Dias Monitorados"
+            value={stats.daysMonitored}
+            icon={Calendar}
+            gradient="bg-gradient-to-br from-orange-500 to-amber-600"
+            description="Últimos 7 dias com dados"
+          />
         </div>
-      ) : (
-        <>
-          {/* Dashboard Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-slate-400">Total de Ofertas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex justify-between items-center">
-                  <div className="text-3xl font-bold">{activeOffers.length}</div>
-                  <BarChart3 size={24} className="text-blue-400" />
-                </div>
-              </CardContent>
-            </Card>
 
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-slate-400">Anúncios Ativos</CardTitle>
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          {/* Chart Section */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Trend Chart */}
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <TrendingUp className="w-5 h-5 text-green-500" />
+                  <span>Evolução dos Anúncios</span>
+                  <span className="text-sm text-muted-foreground">(7 dias)</span>
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="text-3xl font-bold text-emerald-400">
-                      {totalActiveAds}
-                    </div>
-                    {trend.direction !== 'stable' && (
-                      <div className={`mt-1 text-xs flex items-center ${
-                        trend.direction === 'up' ? 'text-emerald-400' : 'text-red-400'
-                      }`}>
-                        {trend.direction === 'up' ? (
-                          <>
-                            <ArrowUp className="mr-1" size={12} />
-                            <span>{formatTrend(trend.percentage)}% em relação a ontem</span>
-                          </>
-                        ) : (
-                          <>
-                            <ArrowDown className="mr-1" size={12} />
-                            <span>{formatTrend(trend.percentage)}% em relação a ontem</span>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <TrendingUp size={24} className="text-emerald-400" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-slate-400">Anúncios das Páginas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex justify-between items-center">
-                  <div className="text-3xl font-bold text-blue-400">{totalPageAds}</div>
-                  <ShoppingCart size={24} className="text-blue-400" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-slate-400">Dias Monitorados</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex justify-between items-center">
-                  <div className="text-3xl font-bold text-purple-400">{chartData.length}</div>
-                  <Calendar size={24} className="text-purple-400" />
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={stats.chartData}
+                      margin={{
+                        top: 10,
+                        right: 30,
+                        left: 0,
+                        bottom: 0,
+                      }}
+                    >
+                      <defs>
+                        <linearGradient id="colorAds" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis 
+                        dataKey="date" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12 }}
+                      />
+                      <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12 }}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(0,0,0,0.8)', 
+                          border: 'none',
+                          borderRadius: '8px',
+                          color: 'white'
+                        }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="totalAds" 
+                        stroke="#3B82F6" 
+                        strokeWidth={3}
+                        fillOpacity={1} 
+                        fill="url(#colorAds)" 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Chart Card */}
-          <Card className="mb-6 bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle>Evolução dos Anúncios</CardTitle>
-            </CardHeader>
-            <CardContent className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={chartData}
-                  margin={{
-                    top: 10,
-                    right: 30,
-                    left: 0,
-                    bottom: 0,
-                  }}
-                >
-                  <defs>
-                    <linearGradient id="colorAds" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#1e293b', 
-                      border: '1px solid #334155',
-                      borderRadius: '8px'
-                    }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="totalAds" 
-                    stroke="#3B82F6" 
-                    fillOpacity={1} 
-                    fill="url(#colorAds)" 
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* Score Distribution */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card className="bg-emerald-900/20 border-emerald-700/30">
-              <CardContent className="p-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="text-sm text-slate-300">Score Alto</div>
-                    <div className="text-3xl font-bold text-emerald-400 mt-1">{scoreDistribution.high}</div>
-                    <div className="text-xs text-slate-400 mt-1">ofertas com performance alta</div>
-                  </div>
-                  <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                    <ArrowUp className="h-6 w-6 text-emerald-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-yellow-900/20 border-yellow-700/30">
-              <CardContent className="p-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="text-sm text-slate-300">Score Médio</div>
-                    <div className="text-3xl font-bold text-yellow-400 mt-1">{scoreDistribution.medium}</div>
-                    <div className="text-xs text-slate-400 mt-1">ofertas com performance média</div>
-                  </div>
-                  <div className="h-10 w-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                    <TrendingUp className="h-6 w-6 text-yellow-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-red-900/20 border-red-700/30">
-              <CardContent className="p-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="text-sm text-slate-300">Score Baixo</div>
-                    <div className="text-3xl font-bold text-red-400 mt-1">{scoreDistribution.low}</div>
-                    <div className="text-xs text-slate-400 mt-1">ofertas com performance baixa</div>
-                  </div>
-                  <div className="h-10 w-10 rounded-full bg-red-500/20 flex items-center justify-center">
-                    <ArrowDown className="h-6 w-6 text-red-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Score Visualization */}
+          <div className="space-y-6">
+            <ScoreVisualization 
+              data={[
+                { name: "Alta", value: stats.scoreDistribution.high, color: "#10B981" },
+                { name: "Média", value: stats.scoreDistribution.medium, color: "#F59E0B" },
+                { name: "Baixa", value: stats.scoreDistribution.low, color: "#EF4444" }
+              ]}
+            />
           </div>
+        </div>
 
-          {/* Quick Access Section */}
-          <Card className="mb-6 bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle>Acesso Rápido</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Link to="/offers">
-                  <Card className="h-full bg-blue-900/20 border-blue-700/30 hover:bg-blue-900/30 transition-colors">
-                    <CardContent className="p-4 flex items-center">
-                      <ShoppingCart className="h-5 w-5 mr-3 text-blue-400" />
-                      <div className="flex-1">
-                        <h3 className="font-medium">Ver Ofertas</h3>
-                        <p className="text-xs text-slate-400 mt-1">Acessar a listagem completa de ofertas</p>
-                      </div>
-                      <ChevronRight className="h-5 w-5 text-slate-500" />
-                    </CardContent>
-                  </Card>
-                </Link>
-
-                <Link to="/analytics">
-                  <Card className="h-full bg-purple-900/20 border-purple-700/30 hover:bg-purple-900/30 transition-colors">
-                    <CardContent className="p-4 flex items-center">
-                      <BarChart3 className="h-5 w-5 mr-3 text-purple-400" />
-                      <div className="flex-1">
-                        <h3 className="font-medium">Análises</h3>
-                        <p className="text-xs text-slate-400 mt-1">Visualizar estatísticas detalhadas</p>
-                      </div>
-                      <ChevronRight className="h-5 w-5 text-slate-500" />
-                    </CardContent>
-                  </Card>
-                </Link>
-
-                <Link to="/notes">
-                  <Card className="h-full bg-green-900/20 border-green-700/30 hover:bg-green-900/30 transition-colors">
-                    <CardContent className="p-4 flex items-center">
-                      <Calendar className="h-5 w-5 mr-3 text-green-400" />
-                      <div className="flex-1">
-                        <h3 className="font-medium">Notas</h3>
-                        <p className="text-xs text-slate-400 mt-1">Gerenciar anotações e lembretes</p>
-                      </div>
-                      <ChevronRight className="h-5 w-5 text-slate-500" />
-                    </CardContent>
-                  </Card>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        </>
-      )}
+        {/* Quick Actions */}
+        <div className="mb-8">
+          <div className="flex items-center space-x-2 mb-6">
+            <Sparkles className="w-5 h-5 text-yellow-500" />
+            <h2 className="text-2xl font-semibold">Acesso Rápido</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <QuickAction
+              title="Gerenciar Ofertas"
+              description="Visualize e edite todas as suas ofertas ativas"
+              icon={Eye}
+              color="from-blue-500 to-blue-600"
+              href="/offers"
+              badge="Novo"
+            />
+            
+            <QuickAction
+              title="Análises Detalhadas"
+              description="Relatórios avançados e insights de performance"
+              icon={BarChart3}
+              color="from-purple-500 to-purple-600"
+              href="/analytics"
+            />
+            
+            <QuickAction
+              title="Notas e Lembretes"
+              description="Mantenha suas anotações organizadas"
+              icon={Calendar}
+              color="from-green-500 to-green-600"
+              href="/notes"
+            />
+          </div>
+        </div>
+      </div>
 
       {/* New Offer Dialog */}
       <Dialog open={isCreatingOffer} onOpenChange={setIsCreatingOffer}>
-        <DialogContent className="sm:max-w-[600px] bg-slate-900 p-0">
+        <DialogContent className="sm:max-w-[600px] bg-white dark:bg-slate-900 p-0 border-0 shadow-2xl">
           <NewOfferForm 
             onSuccess={handleCreateOfferSuccess}
             onCancel={() => setIsCreatingOffer(false)}
